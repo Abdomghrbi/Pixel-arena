@@ -4,22 +4,21 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+
+// Socket.io مع adapter للـ serverless
 const io = new Server(server, {
-    cors: { origin: "*" } // للسماح بالاتصال من أي مكان
+    cors: { origin: "*" },
+    transports: ['websocket', 'polling']
 });
 
-// تقديم الملفات الثابتة
 app.use(express.static('public'));
 
-// بيانات اللاعبين
 const players = {};
 const messages = [];
 
-// عند اتصال لاعب جديد
 io.on('connection', (socket) => {
-    console.log('لاعب متصل:', socket.id);
+    console.log('متصل:', socket.id);
     
-    // إنشاء لاعب جديد في وسط الشاشة
     players[socket.id] = {
         id: socket.id,
         x: 400,
@@ -28,32 +27,22 @@ io.on('connection', (socket) => {
         name: 'لاعب ' + socket.id.substr(0, 4)
     };
     
-    // إرسال بيانات اللاعب له
     socket.emit('init', {
         id: socket.id,
         players: players,
-        messages: messages.slice(-20) // آخر 20 رسالة
+        messages: messages.slice(-20)
     });
     
-    // إبلاغ اللاعبين الآخرين
     socket.broadcast.emit('playerJoined', players[socket.id]);
     
-    // عند تحريك اللاعب
     socket.on('move', (data) => {
         if (players[socket.id]) {
             players[socket.id].x = data.x;
             players[socket.id].y = data.y;
-            
-            // إرسال التحديث للجميع
-            io.emit('playerMoved', {
-                id: socket.id,
-                x: data.x,
-                y: data.y
-            });
+            io.emit('playerMoved', { id: socket.id, x: data.x, y: data.y });
         }
     });
     
-    // عند إرسال رسالة
     socket.on('chat', (msg) => {
         const message = {
             id: socket.id,
@@ -62,16 +51,11 @@ io.on('connection', (socket) => {
             time: new Date().toLocaleTimeString('ar-SA')
         };
         messages.push(message);
-        
-        // حفظ آخر 50 رسالة فقط
         if (messages.length > 50) messages.shift();
-        
         io.emit('chatMessage', message);
     });
     
-    // عند قطع الاتصال
     socket.on('disconnect', () => {
-        console.log('لاعب غادر:', socket.id);
         delete players[socket.id];
         io.emit('playerLeft', socket.id);
     });
@@ -82,7 +66,10 @@ function getRandomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// للـ Vercel
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🎮 Pixel Arena شغال على البورت ${PORT}`);
+    console.log(`🎮 Pixel Arena على البورت ${PORT}`);
 });
+
+module.exports = server;
