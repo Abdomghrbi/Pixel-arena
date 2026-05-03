@@ -25,6 +25,7 @@
             padding: 10px;
             display: flex;
             gap: 10px;
+            z-index: 100;
         }
         #chatInput {
             flex: 1;
@@ -52,6 +53,7 @@
             max-height: 150px;
             overflow-y: auto;
             pointer-events: none;
+            z-index: 50;
         }
         .msg {
             background: rgba(0,0,0,0.6);
@@ -68,6 +70,7 @@
             color: #e94560;
             font-weight: bold;
             font-size: 18px;
+            z-index: 50;
         }
         #controls {
             position: fixed;
@@ -77,6 +80,7 @@
             grid-template-columns: 60px 60px 60px;
             grid-template-rows: 60px 60px 60px;
             gap: 5px;
+            z-index: 100;
         }
         .control-btn {
             width: 60px;
@@ -89,12 +93,31 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
         }
-        .control-btn:active { background: rgba(233, 69, 96, 0.9); }
+        .control-btn:active, .control-btn.pressed { 
+            background: rgba(233, 69, 96, 0.9); 
+            transform: scale(0.95);
+        }
         #btnUp { grid-column: 2; grid-row: 1; }
         #btnLeft { grid-column: 1; grid-row: 2; }
         #btnRight { grid-column: 3; grid-row: 2; }
         #btnDown { grid-column: 2; grid-row: 3; }
+        #connectionStatus {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            z-index: 200;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -104,11 +127,13 @@
     
     <div id="messages"></div>
     
+    <div id="connectionStatus">🔄 جاري الاتصال...</div>
+    
     <div id="controls">
-        <button class="control-btn" id="btnUp">↑</button>
-        <button class="control-btn" id="btnLeft">←</button>
-        <button class="control-btn" id="btnRight">→</button>
-        <button class="control-btn" id="btnDown">↓</button>
+        <button class="control-btn" id="btnUp" ontouchstart="return false;">↑</button>
+        <button class="control-btn" id="btnLeft" ontouchstart="return false;">←</button>
+        <button class="control-btn" id="btnRight" ontouchstart="return false;">→</button>
+        <button class="control-btn" id="btnDown" ontouchstart="return false;">↓</button>
     </div>
     
     <div id="chatBox">
@@ -122,10 +147,20 @@
         const ctx = canvas.getContext('2d');
         
         // ملء الشاشة
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
         
-        const socket = io();
+        // الاتصال بالسيرفر
+        const socket = io({
+            transports: ['polling', 'websocket'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+        
         let myId = null;
         let players = {};
         let messages = [];
@@ -137,13 +172,39 @@
         // تحريك اللاعب
         let keys = {};
         let myX = 400, myY = 300;
+        let isMoving = false;
+        
+        // إظهار حالة الاتصال
+        const statusDiv = document.getElementById('connectionStatus');
+        
+        socket.on('connect', () => {
+            console.log('✅ متصل بالسيرفر');
+            statusDiv.style.display = 'none';
+        });
+        
+        socket.on('connect_error', (err) => {
+            console.log('❌ خطأ بالاتصال:', err.message);
+            statusDiv.textContent = '❌ فشل الاتصال - جاري إعادة المحاولة...';
+            statusDiv.style.display = 'block';
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('⚠️ انقطع الاتصال');
+            statusDiv.textContent = '⚠️ انقطع الاتصال...';
+            statusDiv.style.display = 'block';
+        });
         
         // استقبال البيانات الأولية
         socket.on('init', (data) => {
             myId = data.id;
             players = data.players;
-            messages = data.messages;
+            messages = data.messages || [];
+            if (players[myId]) {
+                myX = players[myId].x;
+                myY = players[myId].y;
+            }
             updateMessages();
+            console.log('🎮 تم الاتصال كـ:', myId);
         });
         
         // لاعب جديد
@@ -175,7 +236,7 @@
         function updateMessages() {
             const div = document.getElementById('messages');
             div.innerHTML = messages.map(m => 
-                `<div class="msg"><strong style="color:${players[m.id]?.color || '#fff'}">${m.name}:</strong> ${m.text}</div>`
+                `<div class="msg"><strong style="color:${players[m.id]?.color || '#fff'}">${m.name || 'مجهول'}:</strong> ${m.text}</div>`
             ).join('');
             div.scrollTop = div.scrollHeight;
         }
@@ -187,26 +248,52 @@
         });
         window.addEventListener('keyup', (e) => keys[e.key] = false);
         
-        // أزرار التحكم (للموبايل)
-        const buttons = {
-            'btnUp': { x: 0, y: -1 },
-            'btnLeft': { x: -1, y: 0 },
-            'btnRight': { x: 1, y: 0 },
-            'btnDown': { x: 0, y: 1 }
+        // أزرار التحكم باللمس - الطريقة الصحيحة
+        const buttonIds = ['btnUp', 'btnLeft', 'btnRight', 'btnDown'];
+        const buttonKeys = {
+            'btnUp': 'ArrowUp',
+            'btnLeft': 'ArrowLeft', 
+            'btnRight': 'ArrowRight',
+            'btnDown': 'ArrowDown'
         };
         
-        Object.keys(buttons).forEach(id => {
+        buttonIds.forEach(id => {
             const btn = document.getElementById(id);
-            let interval;
+            const keyName = buttonKeys[id];
+            
+            // Touch start
             btn.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                interval = setInterval(() => {
-                    keys[id] = true;
-                }, 16);
+                e.stopPropagation();
+                keys[keyName] = true;
+                btn.classList.add('pressed');
+            }, { passive: false });
+            
+            // Touch end
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+                btn.classList.remove('pressed');
             });
-            btn.addEventListener('touchend', () => {
-                clearInterval(interval);
-                keys[id] = false;
+            
+            // Touch cancel (مثل ما يخرج الإصبع من الشاشة)
+            btn.addEventListener('touchcancel', (e) => {
+                keys[keyName] = false;
+                btn.classList.remove('pressed');
+            });
+            
+            // Mouse events للتجربة على الكمبيوتر
+            btn.addEventListener('mousedown', (e) => {
+                keys[keyName] = true;
+                btn.classList.add('pressed');
+            });
+            btn.addEventListener('mouseup', (e) => {
+                keys[keyName] = false;
+                btn.classList.remove('pressed');
+            });
+            btn.addEventListener('mouseleave', (e) => {
+                keys[keyName] = false;
+                btn.classList.remove('pressed');
             });
         });
         
@@ -214,15 +301,18 @@
         function sendMessage() {
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
-            if (text) {
+            if (text && socket.connected) {
                 socket.emit('chat', text);
                 input.value = '';
+                input.blur(); // إخفاء الكيبورد على الموبايل
             }
         }
         
         document.getElementById('sendBtn').addEventListener('click', sendMessage);
         
         // حلقة اللعبة
+        let lastMoveTime = 0;
+        
         function gameLoop() {
             // تحريك اللاعب
             let moved = false;
@@ -235,8 +325,10 @@
             myX = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, myX));
             myY = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, myY));
             
-            // إرسال التحديث
-            if (moved) {
+            // إرسال التحديث (كل 50ms عشان ما نحمّل السيرفر)
+            const now = Date.now();
+            if (moved && now - lastMoveTime > 50) {
+                lastMoveTime = now;
                 socket.emit('move', { x: myX, y: myY });
                 if (players[myId]) {
                     players[myId].x = myX;
@@ -244,7 +336,7 @@
                 }
             }
             
-            // رسم
+            // رسم الخلفية
             ctx.fillStyle = '#16213e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -260,8 +352,10 @@
             
             // رسم اللاعبين
             Object.values(players).forEach(p => {
+                if (!p || !p.x || !p.y) return;
+                
                 // الجسم
-                ctx.fillStyle = p.color;
+                ctx.fillStyle = p.color || '#4ECDC4';
                 ctx.fillRect(p.x - PLAYER_SIZE/2, p.y - PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
                 
                 // الحدود
@@ -273,7 +367,7 @@
                 ctx.fillStyle = '#fff';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(p.name, p.x, p.y - PLAYER_SIZE/2 - 5);
+                ctx.fillText(p.name || 'لاعب', p.x, p.y - PLAYER_SIZE/2 - 5);
                 
                 // إذا كان اللاعب أنا
                 if (p.id === myId) {
@@ -292,24 +386,28 @@
         gameLoop();
         
         // تعديل حجم الشاشة
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
-        
+        window.addEventListener('resize', resizeCanvas);
     </script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script>
-    // تفعيل Mini App
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand(); // ملء الشاشة
     
-    // الحصول على بيانات المستخدم
-    const user = tg.initDataUnsafe.user;
-    if (user) {
-        console.log('مرحباً', user.first_name);
-    }
-</script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        // تفعيل Mini App
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // تفعيل الألوان حسب ثيم Telegram
+        tg.setHeaderColor('#1a1a2e');
+        tg.setBackgroundColor('#16213e');
+        
+        // الحصول على بيانات المستخدم
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+            console.log('👤 مستخدم Telegram:', user.first_name, user.last_name);
+        }
+        
+        // منع إغلاق التطبيق بالخطأ
+        tg.enableClosingConfirmation();
+    </script>
 </body>
 </html>
