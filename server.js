@@ -5,22 +5,31 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// مهم: استخدام polling فقط لأن WebSocket مش مدعوم على Vercel
+// مهم جداً لـ Render
 const io = new Server(server, {
-    cors: { origin: "*" },
-    transports: ['polling'], // ❌ شيل websocket
-    allowUpgrades: false,
+    cors: { 
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000
 });
 
+// تقديم الملفات الثابتة
 app.use(express.static('public'));
+
+// صحة السيرفر
+app.get('/health', (req, res) => {
+    res.json({ status: 'OK', players: Object.keys(players).length });
+});
 
 const players = {};
 const messages = [];
 
 io.on('connection', (socket) => {
-    console.log('متصل:', socket.id);
+    console.log('✅ متصل:', socket.id);
     
     players[socket.id] = {
         id: socket.id,
@@ -42,7 +51,7 @@ io.on('connection', (socket) => {
         if (players[socket.id]) {
             players[socket.id].x = data.x;
             players[socket.id].y = data.y;
-            io.emit('playerMoved', { id: socket.id, x: data.x, y: data.y });
+            socket.broadcast.emit('playerMoved', { id: socket.id, x: data.x, y: data.y });
         }
     });
     
@@ -59,20 +68,18 @@ io.on('connection', (socket) => {
     });
     
     socket.on('disconnect', () => {
+        console.log('❌ غادر:', socket.id);
         delete players[socket.id];
-        io.emit('playerLeft', socket.id);
+        socket.broadcast.emit('playerLeft', socket.id);
     });
 });
 
 function getRandomColor() {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#DDA0DD', '#F0E68C'];
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🎮 Pixel Arena على البورت ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🎮 Pixel Arena شغال على البورت ${PORT}`);
 });
-
-// مهم لـ Vercel
-module.exports = server;
