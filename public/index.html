@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pixel Arena 🎮</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #gameCanvas {
+            display: block;
+            background: #16213e;
+        }
+        #chatBox {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        #chatInput {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #0f3460;
+            color: white;
+            font-size: 16px;
+        }
+        #sendBtn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #e94560;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #messages {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            pointer-events: none;
+        }
+        .msg {
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 5px 10px;
+            margin: 2px 0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        #playerCount {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: #e94560;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        #controls {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            display: grid;
+            grid-template-columns: 60px 60px 60px;
+            grid-template-rows: 60px 60px 60px;
+            gap: 5px;
+        }
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(233, 69, 96, 0.6);
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .control-btn:active { background: rgba(233, 69, 96, 0.9); }
+        #btnUp { grid-column: 2; grid-row: 1; }
+        #btnLeft { grid-column: 1; grid-row: 2; }
+        #btnRight { grid-column: 3; grid-row: 2; }
+        #btnDown { grid-column: 2; grid-row: 3; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="playerCount">👥 0 لاعب</div>
+    
+    <div id="messages"></div>
+    
+    <div id="controls">
+        <button class="control-btn" id="btnUp">↑</button>
+        <button class="control-btn" id="btnLeft">←</button>
+        <button class="control-btn" id="btnRight">→</button>
+        <button class="control-btn" id="btnDown">↓</button>
+    </div>
+    
+    <div id="chatBox">
+        <input type="text" id="chatInput" placeholder="اكتب رسالة..." maxlength="100">
+        <button id="sendBtn">إرسال</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ملء الشاشة
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const socket = io();
+        let myId = null;
+        let players = {};
+        let messages = [];
+        
+        // حجم اللاعب
+        const PLAYER_SIZE = 30;
+        const SPEED = 5;
+        
+        // تحريك اللاعب
+        let keys = {};
+        let myX = 400, myY = 300;
+        
+        // استقبال البيانات الأولية
+        socket.on('init', (data) => {
+            myId = data.id;
+            players = data.players;
+            messages = data.messages;
+            updateMessages();
+        });
+        
+        // لاعب جديد
+        socket.on('playerJoined', (player) => {
+            players[player.id] = player;
+        });
+        
+        // تحريك لاعب
+        socket.on('playerMoved', (data) => {
+            if (players[data.id]) {
+                players[data.id].x = data.x;
+                players[data.id].y = data.y;
+            }
+        });
+        
+        // لاعب غادر
+        socket.on('playerLeft', (id) => {
+            delete players[id];
+        });
+        
+        // رسالة جديدة
+        socket.on('chatMessage', (msg) => {
+            messages.push(msg);
+            if (messages.length > 20) messages.shift();
+            updateMessages();
+        });
+        
+        // تحديث الرسائل
+        function updateMessages() {
+            const div = document.getElementById('messages');
+            div.innerHTML = messages.map(m => 
+                `<div class="msg"><strong style="color:${players[m.id]?.color || '#fff'}">${m.name}:</strong> ${m.text}</div>`
+            ).join('');
+            div.scrollTop = div.scrollHeight;
+        }
+        
+        // التحكم بالكيبورد
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === 'Enter') sendMessage();
+        });
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+        
+        // أزرار التحكم (للموبايل)
+        const buttons = {
+            'btnUp': { x: 0, y: -1 },
+            'btnLeft': { x: -1, y: 0 },
+            'btnRight': { x: 1, y: 0 },
+            'btnDown': { x: 0, y: 1 }
+        };
+        
+        Object.keys(buttons).forEach(id => {
+            const btn = document.getElementById(id);
+            let interval;
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                interval = setInterval(() => {
+                    keys[id] = true;
+                }, 16);
+            });
+            btn.addEventListener('touchend', () => {
+                clearInterval(interval);
+                keys[id] = false;
+            });
+        });
+        
+        // إرسال رسالة
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (text) {
+                socket.emit('chat', text);
+                input.value = '';
+            }
+        }
+        
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        
+        // حلقة اللعبة
+        function gameLoop() {
+            // تحريك اللاعب
+            let moved = false;
+            if (keys['ArrowUp'] || keys['btnUp']) { myY -= SPEED; moved = true; }
+            if (keys['ArrowDown'] || keys['btnDown']) { myY += SPEED; moved = true; }
+            if (keys['ArrowLeft'] || keys['btnLeft']) { myX -= SPEED; moved = true; }
+            if (keys['ArrowRight'] || keys['btnRight']) { myX += SPEED; moved = true; }
+            
+            // حدود الشاشة
+            myX = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, myX));
+            myY = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, myY));
+            
+            // إرسال التحديث
+            if (moved) {
+                socket.emit('move', { x: myX, y: myY });
+                if (players[myId]) {
+                    players[myId].x = myX;
+                    players[myId].y = myY;
+                }
+            }
+            
+            // رسم
+            ctx.fillStyle = '#16213e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // رسم شبكة
+            ctx.strokeStyle = '#0f3460';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+            
+            // رسم اللاعبين
+            Object.values(players).forEach(p => {
+                // الجسم
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - PLAYER_SIZE/2, p.y - PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
+                
+                // الحدود
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(p.x - PLAYER_SIZE/2, p.y - PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
+                
+                // الاسم
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.name, p.x, p.y - PLAYER_SIZE/2 - 5);
+                
+                // إذا كان اللاعب أنا
+                if (p.id === myId) {
+                    ctx.strokeStyle = '#FFD700';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(p.x - PLAYER_SIZE/2 - 3, p.y - PLAYER_SIZE/2 - 3, PLAYER_SIZE + 6, PLAYER_SIZE + 6);
+                }
+            });
+            
+            // عدد اللاعبين
+            document.getElementById('playerCount').textContent = `👥 ${Object.keys(players).length} لاعب`;
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+        
+        // تعديل حجم الشاشة
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
