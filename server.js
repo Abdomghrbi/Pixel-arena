@@ -5,10 +5,13 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io مع adapter للـ serverless
+// مهم: استخدام polling فقط لأن WebSocket مش مدعوم على Vercel
 const io = new Server(server, {
     cors: { origin: "*" },
-    transports: ['websocket', 'polling']
+    transports: ['polling'], // ❌ شيل websocket
+    allowUpgrades: false,
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 app.use(express.static('public'));
@@ -66,10 +69,10 @@ function getRandomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// للـ Vercel
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🎮 Pixel Arena على البورت ${PORT}`);
 });
 
+// مهم لـ Vercel
 module.exports = server;
