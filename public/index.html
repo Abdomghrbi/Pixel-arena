@@ -6,139 +6,241 @@
     <title>Pixel Arena 🎮</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            background: #1a1a2e;
+            background: #0d1117;
             font-family: 'Segoe UI', Tahoma, sans-serif;
             overflow: hidden;
             touch-action: none;
+            user-select: none;
         }
+        
         #gameCanvas {
             display: block;
-            background: #16213e;
         }
-        #chatBox {
+        
+        /* خلفية الجزء العلوي */
+        #topBar {
             position: fixed;
-            bottom: 0;
+            top: 0;
             left: 0;
             right: 0;
-            background: rgba(0,0,0,0.8);
-            padding: 10px;
+            height: 50px;
+            background: rgba(13, 17, 23, 0.95);
+            border-bottom: 2px solid #e94560;
             display: flex;
-            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
             z-index: 100;
+            backdrop-filter: blur(10px);
         }
-        #chatInput {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            background: #0f3460;
-            color: white;
-            font-size: 16px;
-        }
-        #sendBtn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            background: #e94560;
-            color: white;
+        
+        #gameTitle {
+            color: #e94560;
+            font-size: 20px;
             font-weight: bold;
-            cursor: pointer;
+            text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
         }
-        #messages {
+        
+        #playerCount {
+            color: #fff;
+            font-size: 14px;
+            background: rgba(233, 69, 96, 0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(233, 69, 96, 0.5);
+        }
+        
+        /* دردشة محسّنة */
+        #chatContainer {
             position: fixed;
-            top: 10px;
+            top: 60px;
             left: 10px;
             right: 10px;
-            max-height: 150px;
+            max-height: 200px;
             overflow-y: auto;
+            z-index: 50;
             pointer-events: none;
-            z-index: 50;
         }
+        
         .msg {
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             color: white;
-            padding: 5px 10px;
-            margin: 2px 0;
-            border-radius: 5px;
-            font-size: 14px;
+            padding: 8px 12px;
+            margin: 3px 0;
+            border-radius: 15px;
+            font-size: 13px;
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease;
+            border-right: 3px solid;
         }
-        #playerCount {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: #e94560;
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .msg-name {
             font-weight: bold;
-            font-size: 18px;
-            z-index: 50;
+            margin-left: 5px;
         }
+        
+        /* أزرار التحكم - دائري */
         #controls {
             position: fixed;
-            bottom: 80px;
+            bottom: 100px;
             right: 20px;
             display: grid;
-            grid-template-columns: 60px 60px 60px;
-            grid-template-rows: 60px 60px 60px;
-            gap: 5px;
+            grid-template-columns: 70px 70px 70px;
+            grid-template-rows: 70px 70px 70px;
+            gap: 8px;
             z-index: 100;
         }
+        
         .control-btn {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
-            border: none;
-            background: rgba(233, 69, 96, 0.6);
+            border: 3px solid rgba(255,255,255,0.3);
+            background: rgba(233, 69, 96, 0.4);
             color: white;
-            font-size: 24px;
+            font-size: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
+            transition: all 0.1s;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
         }
+        
         .control-btn:active, .control-btn.pressed { 
-            background: rgba(233, 69, 96, 0.9); 
-            transform: scale(0.95);
+            background: rgba(233, 69, 96, 0.8);
+            transform: scale(0.9);
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.6);
         }
+        
         #btnUp { grid-column: 2; grid-row: 1; }
         #btnLeft { grid-column: 1; grid-row: 2; }
         #btnRight { grid-column: 3; grid-row: 2; }
         #btnDown { grid-column: 2; grid-row: 3; }
+        
+        /* صندوق الدردشة السفلي */
+        #chatBox {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(13, 17, 23, 0.95);
+            padding: 12px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+            border-top: 2px solid #e94560;
+            backdrop-filter: blur(10px);
+        }
+        
+        #chatInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid rgba(233, 69, 96, 0.3);
+            border-radius: 25px;
+            background: rgba(255,255,255,0.05);
+            color: white;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        #chatInput:focus {
+            border-color: #e94560;
+        }
+        
+        #chatInput::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+        
+        #sendBtn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            background: #e94560;
+            color: white;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+            transition: all 0.2s;
+        }
+        
+        #sendBtn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(233, 69, 96, 0.4);
+        }
+        
+        /* حالة الاتصال */
         #connectionStatus {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.9);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
+            color: #e94560;
+            padding: 25px 40px;
+            border-radius: 15px;
             font-size: 18px;
             z-index: 200;
             display: none;
+            border: 2px solid #e94560;
+            text-align: center;
+        }
+        
+        #connectionStatus.show {
+            display: block;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* تأثيرات الجسيمات */
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(233, 69, 96, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     
-    <div id="playerCount">👥 0 لاعب</div>
+    <div id="topBar">
+        <div id="gameTitle">🔥 Pixel Arena</div>
+        <div id="playerCount">👥 0 لاعب</div>
+    </div>
     
-    <div id="messages"></div>
+    <div id="chatContainer"></div>
     
     <div id="connectionStatus">🔄 جاري الاتصال...</div>
     
     <div id="controls">
-        <button class="control-btn" id="btnUp" ontouchstart="return false;">↑</button>
-        <button class="control-btn" id="btnLeft" ontouchstart="return false;">←</button>
-        <button class="control-btn" id="btnRight" ontouchstart="return false;">→</button>
-        <button class="control-btn" id="btnDown" ontouchstart="return false;">↓</button>
+        <button class="control-btn" id="btnUp">▲</button>
+        <button class="control-btn" id="btnLeft">◀</button>
+        <button class="control-btn" id="btnRight">▶</button>
+        <button class="control-btn" id="btnDown">▼</button>
     </div>
     
     <div id="chatBox">
         <input type="text" id="chatInput" placeholder="اكتب رسالة..." maxlength="100">
-        <button id="sendBtn">إرسال</button>
+        <button id="sendBtn">📤</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -146,16 +248,14 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // ملء الشاشة
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
         resizeCanvas();
         
-        // الاتصال بالسيرفر
         const socket = io({
-            transports: ['polling', 'websocket'],
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000
@@ -164,37 +264,28 @@
         let myId = null;
         let players = {};
         let messages = [];
-        
-        // حجم اللاعب
-        const PLAYER_SIZE = 30;
-        const SPEED = 5;
-        
-        // تحريك اللاعب
+        const PLAYER_SIZE = 35;
+        const SPEED = 4;
         let keys = {};
         let myX = 400, myY = 300;
-        let isMoving = false;
+        let lastMoveTime = 0;
         
-        // إظهار حالة الاتصال
         const statusDiv = document.getElementById('connectionStatus');
         
         socket.on('connect', () => {
-            console.log('✅ متصل بالسيرفر');
-            statusDiv.style.display = 'none';
+            statusDiv.classList.remove('show');
         });
         
-        socket.on('connect_error', (err) => {
-            console.log('❌ خطأ بالاتصال:', err.message);
+        socket.on('connect_error', () => {
             statusDiv.textContent = '❌ فشل الاتصال - جاري إعادة المحاولة...';
-            statusDiv.style.display = 'block';
+            statusDiv.classList.add('show');
         });
         
         socket.on('disconnect', () => {
-            console.log('⚠️ انقطع الاتصال');
             statusDiv.textContent = '⚠️ انقطع الاتصال...';
-            statusDiv.style.display = 'block';
+            statusDiv.classList.add('show');
         });
         
-        // استقبال البيانات الأولية
         socket.on('init', (data) => {
             myId = data.id;
             players = data.players;
@@ -204,15 +295,13 @@
                 myY = players[myId].y;
             }
             updateMessages();
-            console.log('🎮 تم الاتصال كـ:', myId);
         });
         
-        // لاعب جديد
         socket.on('playerJoined', (player) => {
             players[player.id] = player;
+            createParticles(player.x, player.y, player.color);
         });
         
-        // تحريك لاعب
         socket.on('playerMoved', (data) => {
             if (players[data.id]) {
                 players[data.id].x = data.x;
@@ -220,36 +309,35 @@
             }
         });
         
-        // لاعب غادر
         socket.on('playerLeft', (id) => {
             delete players[id];
         });
         
-        // رسالة جديدة
         socket.on('chatMessage', (msg) => {
             messages.push(msg);
             if (messages.length > 20) messages.shift();
             updateMessages();
         });
         
-        // تحديث الرسائل
         function updateMessages() {
-            const div = document.getElementById('messages');
-            div.innerHTML = messages.map(m => 
-                `<div class="msg"><strong style="color:${players[m.id]?.color || '#fff'}">${m.name || 'مجهول'}:</strong> ${m.text}</div>`
-            ).join('');
+            const div = document.getElementById('chatContainer');
+            div.innerHTML = messages.map(m => {
+                const color = players[m.id]?.color || '#fff';
+                return `<div class="msg" style="border-right-color: ${color}">
+                    <span class="msg-name" style="color: ${color}">${m.name || 'لاعب'}:</span>
+                    ${m.text}
+                </div>`;
+            }).join('');
             div.scrollTop = div.scrollHeight;
         }
         
-        // التحكم بالكيبورد
+        // التحكم
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (e.key === 'Enter') sendMessage();
         });
         window.addEventListener('keyup', (e) => keys[e.key] = false);
         
-        // أزرار التحكم باللمس - الطريقة الصحيحة
-        const buttonIds = ['btnUp', 'btnLeft', 'btnRight', 'btnDown'];
         const buttonKeys = {
             'btnUp': 'ArrowUp',
             'btnLeft': 'ArrowLeft', 
@@ -257,75 +345,198 @@
             'btnDown': 'ArrowDown'
         };
         
-        buttonIds.forEach(id => {
+        Object.keys(buttonKeys).forEach(id => {
             const btn = document.getElementById(id);
             const keyName = buttonKeys[id];
             
-            // Touch start
             btn.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                e.stopPropagation();
                 keys[keyName] = true;
                 btn.classList.add('pressed');
             }, { passive: false });
             
-            // Touch end
             btn.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 keys[keyName] = false;
                 btn.classList.remove('pressed');
             });
             
-            // Touch cancel (مثل ما يخرج الإصبع من الشاشة)
-            btn.addEventListener('touchcancel', (e) => {
+            btn.addEventListener('touchcancel', () => {
                 keys[keyName] = false;
                 btn.classList.remove('pressed');
             });
             
-            // Mouse events للتجربة على الكمبيوتر
-            btn.addEventListener('mousedown', (e) => {
+            btn.addEventListener('mousedown', () => {
                 keys[keyName] = true;
                 btn.classList.add('pressed');
             });
-            btn.addEventListener('mouseup', (e) => {
+            btn.addEventListener('mouseup', () => {
                 keys[keyName] = false;
                 btn.classList.remove('pressed');
             });
-            btn.addEventListener('mouseleave', (e) => {
+            btn.addEventListener('mouseleave', () => {
                 keys[keyName] = false;
                 btn.classList.remove('pressed');
             });
         });
         
-        // إرسال رسالة
         function sendMessage() {
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
             if (text && socket.connected) {
                 socket.emit('chat', text);
                 input.value = '';
-                input.blur(); // إخفاء الكيبورد على الموبايل
+                input.blur();
             }
         }
         
         document.getElementById('sendBtn').addEventListener('click', sendMessage);
         
-        // حلقة اللعبة
-        let lastMoveTime = 0;
+        // جسيمات
+        let particles = [];
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 1,
+                    color
+                });
+            }
+        }
+        
+        function updateParticles() {
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                return p.life > 0;
+            });
+        }
+        
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        // رسم شخصية اللاعب
+        function drawPlayer(p, isMe) {
+            const x = p.x;
+            const y = p.y;
+            const size = PLAYER_SIZE;
+            
+            // ظل
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + size/2 + 5, size/2, size/4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // الجسم (دائرة)
+            ctx.fillStyle = p.color || '#4ECDC4';
+            ctx.beginPath();
+            ctx.arc(x, y, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // حدود الجسم
+            ctx.strokeStyle = isMe ? '#FFD700' : '#fff';
+            ctx.lineWidth = isMe ? 3 : 2;
+            ctx.beginPath();
+            ctx.arc(x, y, size/2, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // عيون
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(x - 8, y - 5, 5, 0, Math.PI * 2);
+            ctx.arc(x + 8, y - 5, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // بؤبؤ العين
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(x - 8, y - 5, 2.5, 0, Math.PI * 2);
+            ctx.arc(x + 8, y - 5, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // ابتسامة
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y + 3, 8, 0.2 * Math.PI, 0.8 * Math.PI);
+            ctx.stroke();
+            
+            // اسم اللاعب
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 13px Arial';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(p.name || 'لاعب', x, y - size/2 - 10);
+            ctx.shadowBlur = 0;
+            
+            // إذا كان اللاعب أنا - سهم
+            if (isMe) {
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.moveTo(x, y - size/2 - 20);
+                ctx.lineTo(x - 6, y - size/2 - 30);
+                ctx.lineTo(x + 6, y - size/2 - 30);
+                ctx.fill();
+            }
+        }
+        
+        // رسم الخلفية
+        function drawBackground() {
+            // خلفية داكنة
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // شبكة ناعمة
+            ctx.strokeStyle = 'rgba(233, 69, 96, 0.08)';
+            ctx.lineWidth = 1;
+            const gridSize = 60;
+            
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // نقاط مضيئة عشوائية
+            ctx.fillStyle = 'rgba(233, 69, 96, 0.15)';
+            for (let i = 0; i < 20; i++) {
+                const px = (Math.sin(i * 1.5) * 0.5 + 0.5) * canvas.width;
+                const py = (Math.cos(i * 2.3) * 0.5 + 0.5) * canvas.height;
+                ctx.beginPath();
+                ctx.arc(px, py, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
         
         function gameLoop() {
-            // تحريك اللاعب
             let moved = false;
             if (keys['ArrowUp'] || keys['btnUp']) { myY -= SPEED; moved = true; }
             if (keys['ArrowDown'] || keys['btnDown']) { myY += SPEED; moved = true; }
             if (keys['ArrowLeft'] || keys['btnLeft']) { myX -= SPEED; moved = true; }
             if (keys['ArrowRight'] || keys['btnRight']) { myX += SPEED; moved = true; }
             
-            // حدود الشاشة
             myX = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, myX));
-            myY = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, myY));
+            myY = Math.max(PLAYER_SIZE + 50, Math.min(canvas.height - PLAYER_SIZE - 120, myY));
             
-            // إرسال التحديث (كل 50ms عشان ما نحمّل السيرفر)
             const now = Date.now();
             if (moved && now - lastMoveTime > 50) {
                 lastMoveTime = now;
@@ -336,78 +547,37 @@
                 }
             }
             
-            // رسم الخلفية
-            ctx.fillStyle = '#16213e';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // رسم شبكة
-            ctx.strokeStyle = '#0f3460';
-            ctx.lineWidth = 1;
-            for (let x = 0; x < canvas.width; x += 50) {
-                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-            }
-            for (let y = 0; y < canvas.height; y += 50) {
-                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-            }
+            drawBackground();
+            updateParticles();
+            drawParticles();
             
             // رسم اللاعبين
             Object.values(players).forEach(p => {
                 if (!p || !p.x || !p.y) return;
-                
-                // الجسم
-                ctx.fillStyle = p.color || '#4ECDC4';
-                ctx.fillRect(p.x - PLAYER_SIZE/2, p.y - PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
-                
-                // الحدود
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(p.x - PLAYER_SIZE/2, p.y - PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
-                
-                // الاسم
-                ctx.fillStyle = '#fff';
-                ctx.font = '14px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(p.name || 'لاعب', p.x, p.y - PLAYER_SIZE/2 - 5);
-                
-                // إذا كان اللاعب أنا
-                if (p.id === myId) {
-                    ctx.strokeStyle = '#FFD700';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(p.x - PLAYER_SIZE/2 - 3, p.y - PLAYER_SIZE/2 - 3, PLAYER_SIZE + 6, PLAYER_SIZE + 6);
-                }
+                drawPlayer(p, p.id === myId);
             });
             
-            // عدد اللاعبين
             document.getElementById('playerCount').textContent = `👥 ${Object.keys(players).length} لاعب`;
             
             requestAnimationFrame(gameLoop);
         }
         
         gameLoop();
-        
-        // تعديل حجم الشاشة
         window.addEventListener('resize', resizeCanvas);
     </script>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-        // تفعيل Mini App
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
+        tg.setHeaderColor('#0d1117');
+        tg.setBackgroundColor('#0d1117');
         
-        // تفعيل الألوان حسب ثيم Telegram
-        tg.setHeaderColor('#1a1a2e');
-        tg.setBackgroundColor('#16213e');
-        
-        // الحصول على بيانات المستخدم
         const user = tg.initDataUnsafe?.user;
         if (user) {
-            console.log('👤 مستخدم Telegram:', user.first_name, user.last_name);
+            console.log('👤 Telegram:', user.first_name);
         }
-        
-        // منع إغلاق التطبيق بالخطأ
-        tg.enableClosingConfirmation();
     </script>
 </body>
 </html>
